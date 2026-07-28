@@ -706,9 +706,8 @@ export const generateTicketPDF = (
   const ticketContentHTML = `<div style="text-align: center; margin-bottom: 4px;">${settings.logo && settings.logo.startsWith('data:') ? `<div style="text-align: center; margin-bottom: 4px;"><img src="${settings.logo}" style="max-width: ${is80mm ? '40mm' : '30mm'}; max-height: 20mm; object-fit: contain;" /></div>` : ''}<div style="font-size: ${is80mm ? '14px' : '12px'}; font-weight: bold; text-transform: uppercase;">${displayBusinessName}</div><div style="font-size: 0.9em; color: #333; margin-top: 2px;">${infoLinesHTML}</div></div><div class="dashed-line"></div><div style="font-size: 0.95em; margin-bottom: 4px;"><div style="font-weight: bold; font-size: 1.05em; text-transform: uppercase; text-align: center; margin-top: 2px;">${data.title}</div><div style="margin-top: 2px;"><span style="font-weight: bold;">FOLIO:</span> #${data.id}</div><div><span style="font-weight: bold;">FECHA:</span> ${formattedDate}</div>${data.customerName ? `<div><span style="font-weight: bold;">CLIENTE:</span> ${data.customerName}</div>` : ''}</div><div class="dashed-line"></div><div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 0.95em; margin-bottom: 4px; border-bottom: 1px dashed #000; padding-bottom: 4px;"><span>Descripción</span><span style="text-align: right;">Importe</span></div><div>${itemsHTML}</div><div class="dashed-line"></div><div style="font-size: 0.95em;">${totalsHTML}</div>${notesHTML}${footerHTML}`;
 
   // Build complete print HTML for thermal roll printers
-  const pageSizeStr = is80mm ? '80mm auto' : '58mm auto';
   const paperWidthStr = is80mm ? '80mm' : '58mm';
-  const contentWidthStr = is80mm ? '76mm' : '54mm';
+  const contentWidthStr = is80mm ? '74mm' : '52mm';
 
   const fullHtml = `<!DOCTYPE html>
 <html>
@@ -722,12 +721,12 @@ export const generateTicketPDF = (
       padding: 0;
     }
     @page {
-      size: ${pageSizeStr};
+      size: portrait;
       margin: 0 !important;
     }
     @media print {
       @page {
-        size: ${pageSizeStr};
+        size: portrait;
         margin: 0 !important;
       }
       header, footer, nav { display: none !important; }
@@ -752,10 +751,14 @@ export const generateTicketPDF = (
         min-height: 0 !important;
         max-height: none !important;
         margin: 0 auto !important;
-        padding: 0 !important;
+        padding: 0 0 1mm 0 !important;
         box-sizing: border-box !important;
         display: block !important;
         overflow: hidden !important;
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
       }
     }
     html, body {

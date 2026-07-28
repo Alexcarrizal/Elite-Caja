@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useStore, defaultSettings } from '../store/useStore';
 import { Search, Plus, Minus, Trash2, CreditCard, Banknote, Smartphone, Receipt, ShoppingCart, Star, Check, Printer, ArrowRight, UserPlus, User, AlertTriangle, MessageCircle, Clock, Pause, Play, ZoomIn, Database } from 'lucide-react';
-import { generateReceiptPDF } from '../utils/pdf';
+import { toast } from 'sonner';
+import { generateReceiptPDF, convertSaleToTicketData } from '../utils/pdf';
+import { printTicketESCPOSDirect } from '../utils/escpos';
 import { shareReceiptWhatsApp } from '../utils/receiptImage';
 import { formatCurrency, capitalizeFirst } from '../utils/format';
 import { PaymentMethodType, Sale, Product } from '../types';
@@ -311,6 +313,18 @@ export default function POS() {
   const handlePrintReceipt = (formatType: 'media-carta' | 'carta-completa' | 'ticket-80mm' | 'ticket-58mm' = 'media-carta') => {
     if (lastSale) {
       generateReceiptPDF(lastSale, settings, formatType);
+    }
+  };
+
+  const handleDirectESCPOS = async () => {
+    if (!lastSale) return;
+    const data = convertSaleToTicketData(lastSale);
+    toast.loading('Enviando comandos a impresora térmica...', { id: 'escpos' });
+    const res = await printTicketESCPOSDirect(data, settings, 'ticket-80mm');
+    if (res.success) {
+      toast.success('¡Ticket impreso correctamente!', { id: 'escpos' });
+    } else {
+      toast.error(res.error || 'No se pudo conectar a la impresora USB.', { id: 'escpos' });
     }
   };
 
@@ -1318,14 +1332,22 @@ export default function POS() {
                     Opciones de Impresión
                   </span>
                   
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     <button
                       onClick={() => handlePrintReceipt('ticket-80mm')}
                       className="py-2.5 px-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs transition-all flex items-center justify-center shadow-lg shadow-blue-600/10"
-                      title="Imprimir Ticket Térmico (80mm)"
+                      title="Imprimir Ticket Térmico mediante diálogo de impresión de Windows/Navegador"
                     >
                       <Printer className="w-3.5 h-3.5 mr-1 text-white shrink-0" />
                       Ticket
+                    </button>
+                    <button
+                      onClick={handleDirectESCPOS}
+                      className="py-2.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs transition-all flex items-center justify-center shadow-lg shadow-emerald-600/10"
+                      title="Imprimir directamente a la impresora térmica por USB/COM sin cuadro de diálogo (0 desperdicio de papel)"
+                    >
+                      <Printer className="w-3.5 h-3.5 mr-1 text-white shrink-0" />
+                      Ticket USB
                     </button>
                     <button
                       onClick={() => handlePrintReceipt('media-carta')}
@@ -1341,7 +1363,7 @@ export default function POS() {
                       title="Imprimir nota en hoja completa"
                     >
                       <Printer className="w-3.5 h-3.5 mr-1 text-indigo-400 shrink-0" />
-                      Carta Completa
+                      Carta
                     </button>
                   </div>
                 </div>
