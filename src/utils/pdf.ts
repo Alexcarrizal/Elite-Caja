@@ -721,12 +721,12 @@ export const generateTicketPDF = (
       padding: 0;
     }
     @page {
-      size: portrait;
+      size: ${paperWidthStr} auto;
       margin: 0 !important;
     }
     @media print {
       @page {
-        size: portrait;
+        size: ${paperWidthStr} auto;
         margin: 0 !important;
       }
       header, footer, nav { display: none !important; }
@@ -735,26 +735,26 @@ export const generateTicketPDF = (
         max-width: ${paperWidthStr} !important;
         height: auto !important;
         min-height: 0 !important;
-        max-height: none !important;
+        max-height: max-content !important;
         margin: 0 !important;
         padding: 0 !important;
         background-color: #fff !important;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
         display: block !important;
-        overflow: hidden !important;
+        overflow: visible !important;
       }
       #ticket-container {
         width: ${contentWidthStr} !important;
         max-width: ${contentWidthStr} !important;
         height: auto !important;
         min-height: 0 !important;
-        max-height: none !important;
+        max-height: max-content !important;
         margin: 0 auto !important;
         padding: 0 0 1mm 0 !important;
         box-sizing: border-box !important;
         display: block !important;
-        overflow: hidden !important;
+        overflow: visible !important;
         page-break-after: avoid !important;
         break-after: avoid !important;
         page-break-inside: avoid !important;
@@ -768,10 +768,10 @@ export const generateTicketPDF = (
       max-width: ${paperWidthStr} !important;
       height: auto !important;
       min-height: 0 !important;
-      max-height: none !important;
+      max-height: max-content !important;
       background-color: #fff !important;
       display: block !important;
-      overflow: hidden !important;
+      overflow: visible !important;
     }
     body {
       font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -789,12 +789,12 @@ export const generateTicketPDF = (
       max-width: ${contentWidthStr} !important;
       height: auto !important;
       min-height: 0 !important;
-      max-height: none !important;
+      max-height: max-content !important;
       margin: 0 auto !important;
       padding: 0 !important;
       box-sizing: border-box !important;
       display: block !important;
-      overflow: hidden !important;
+      overflow: visible !important;
     }
     #ticket-container > *:last-child {
       margin-bottom: 0 !important;
@@ -850,8 +850,8 @@ export const generateTicketPDF = (
   iframe.style.position = 'fixed';
   iframe.style.left = '-9999px';
   iframe.style.top = '-9999px';
-  iframe.style.width = '100%';
-  iframe.style.height = '100%';
+  iframe.style.width = is80mm ? '300px' : '220px';
+  iframe.style.height = '800px';
   iframe.style.border = '0';
   document.body.appendChild(iframe);
 
