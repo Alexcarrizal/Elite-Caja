@@ -542,6 +542,14 @@ export default function SalesHistory() {
             
             <div className="p-6 border-t border-gray-100 dark:border-gray-700 flex flex-wrap gap-2 justify-end">
               <button 
+                onClick={() => selectedSale && generateReceiptPDF(selectedSale, settings, 'ticket-80mm')}
+                className="px-4 py-2 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors flex items-center text-sm shadow-sm"
+                title="Imprimir ticket para impresora térmica de 80mm"
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                Ticket (80mm)
+              </button>
+              <button 
                 onClick={() => selectedSale && generateReceiptPDF(selectedSale, settings, 'media-carta')}
                 className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center text-sm shadow-sm"
                 title="Generar Nota de Remisión en mitad de hoja carta (Duplicado)"
