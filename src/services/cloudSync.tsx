@@ -31,8 +31,9 @@ interface FirestoreErrorInfo {
 }
 
 const handleFirestoreError = (error: unknown, operationType: OperationType | string, path: string | null) => {
+  const rawMessage = error instanceof Error ? error.message : String(error);
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: rawMessage,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
@@ -48,7 +49,14 @@ const handleFirestoreError = (error: unknown, operationType: OperationType | str
     path
   };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
-  toast.error(errInfo.error);
+
+  let friendlyText = 'Error de comunicación con la nube';
+  if (rawMessage.includes('permission') || rawMessage.includes('insufficient')) {
+    friendlyText = 'Sin permisos suficientes. Inicia sesión con tu cuenta de Google.';
+  } else if (rawMessage.includes('offline') || rawMessage.includes('unavailable')) {
+    friendlyText = 'Sin conexión. Los cambios se guardarán localmente.';
+  }
+  toast.error(friendlyText);
   throw new Error(JSON.stringify(errInfo));
 };
 
@@ -132,8 +140,13 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
         // Fetch collections in parallel
         const fetchCollection = async (col: string) => {
-          const snap = await getDocs(collection(db, 'stores', uid, col));
-          return snap.docs.map(d => d.data());
+          try {
+            const snap = await getDocs(collection(db, 'stores', uid, col));
+            return snap.docs.map(d => d.data());
+          } catch (err) {
+            console.warn(`Error al leer subcolección ${col}:`, err);
+            return [];
+          }
         };
 
         const [products, customers, sales, inventoryMovements, cashRegisters, syncedUsers, suppliers, remissions, purchaseOrders, quotes] = await Promise.all([
@@ -196,8 +209,8 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const uid = state.firebaseUser?.uid;
       const prev = stateRef.current;
       
-      // Do not sync UP if we are currently syncing DOWN, if the user is not logged in, or if they are logging out
-      if (!uid || isSyncingDown || !initialLoadDone.current || !state.currentUser) {
+      // Do not sync UP if we are currently syncing DOWN, if user/auth is not ready, or if logging out
+      if (!uid || !auth.currentUser || auth.currentUser.uid !== uid || isSyncingDown || !initialLoadDone.current || !state.currentUser) {
         stateRef.current = state;
         return;
       }
