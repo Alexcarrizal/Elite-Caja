@@ -1,0 +1,8 @@
+{
+  "name": "Remix PDV Aceros y Perfiles",
+  "description": "Aplicación web moderna de Punto de Venta (POS) adaptable a cualquier tipo de negocio. Incluye inventario, caja, reportes y configuración.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

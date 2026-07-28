@@ -1,0 +1,1359 @@
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { BusinessSettings, Product, CartItem, Sale, CashRegister, User, InventoryMovement, Customer, Supplier, Remission, License, PaymentMethodType, CashMovement, SuspendedSale, PurchaseOrder, Quote } from '../types';
+
+import { type User as FirebaseUser } from 'firebase/auth';
+import { generateLicenseKey, validateLicense } from '../utils/license';
+
+interface AppState {
+  settings: BusinessSettings;
+  products: Product[];
+  sales: Sale[];
+  suspendedSales: SuspendedSale[];
+  remissions: Remission[];
+  purchaseOrders: PurchaseOrder[];
+  quotes: Quote[];
+  cashRegisters: CashRegister[];
+  users: User[];
+  customers: Customer[];
+  suppliers: Supplier[];
+  currentUser: User | null;
+  cart: CartItem[];
+  theme: 'light' | 'dark';
+  inventoryMovements: InventoryMovement[];
+  license: License;
+  
+  firebaseUser: FirebaseUser | null;
+  setFirebaseUser: (user: FirebaseUser | null) => void;
+  // Dashboard Visibility State
+  dashboardVisibility: {
+    weekSales: boolean;
+    netProfit: boolean;
+    monthSales: boolean;
+    todaySales: boolean;
+    productCost: boolean;
+    streamingCost: boolean;
+  };
+  
+  // Actions
+  updateSettings: (settings: Partial<BusinessSettings>) => void;
+  toggleDashboardVisibility: (key: keyof AppState['dashboardVisibility']) => void;
+  addProduct: (product: Product) => void;
+  updateProduct: (id: string, product: Partial<Product>) => void;
+  deleteProduct: (id: string) => void;
+  addToCart: (product: Product, quantity?: number) => void;
+  updateCartItem: (cartId: string, quantity: number, discount?: number) => void;
+  removeFromCart: (cartId: string) => void;
+  clearCart: () => void;
+  processSale: (sale: Sale) => void;
+  updateSale: (id: string, sale: Partial<Sale>) => void;
+  deleteSale: (saleId: string) => void;
+  returnSale: (saleId: string) => void;
+  loadSaleIntoCart: (saleId: string) => void;
+  suspendCart: (name: string, customerId: string) => void;
+  resumeCart: (suspendedSaleId: string) => void;
+  deleteSuspendedSale: (suspendedSaleId: string) => void;
+  addRemission: (remission: Remission) => void;
+  updateRemission: (id: string, remission: Partial<Remission>) => void;
+  deleteRemission: (id: string) => void;
+  addQuote: (quote: Quote) => void;
+  updateQuote: (id: string, quote: Partial<Quote>) => void;
+  deleteQuote: (id: string) => void;
+  addPurchaseOrder: (purchaseOrder: PurchaseOrder) => void;
+  updatePurchaseOrder: (id: string, purchaseOrder: Partial<PurchaseOrder>) => void;
+  deletePurchaseOrder: (id: string) => void;
+  openRegister: (initialAmount: number) => void;
+  closeRegister: (actualCash: number) => void;
+  addWithdrawal: (amount: number, description: string, notes?: string) => void;
+  addExtraIncome: (amount: number, description: string, notes?: string, paymentMethod?: PaymentMethodType, remissionNote?: string, customerId?: string, customerName?: string, customId?: string) => void;
+  deleteMovement: (id: string) => void;
+  editMovement: (id: string, amount: number, description: string, notes?: string, paymentMethod?: PaymentMethodType, remissionNote?: string, customerId?: string, customerName?: string) => void;
+  login: (pin: string) => boolean;
+  logout: () => void;
+  toggleTheme: () => void;
+  addInventoryMovement: (movement: Omit<InventoryMovement, 'id' | 'date'>) => void;
+  addCustomer: (customer: Omit<Customer, 'id'>) => void;
+  updateCustomer: (id: string, customer: Partial<Customer>) => void;
+  deleteCustomer: (id: string) => void;
+  addSupplier: (supplier: Omit<Supplier, 'id'>) => void;
+  updateSupplier: (id: string, supplier: Partial<Supplier>) => void;
+  deleteSupplier: (id: string) => void;
+  addUser: (user: Omit<User, 'id'>) => void;
+  updateUser: (id: string, user: Partial<User>) => void;
+  deleteUser: (id: string) => void;
+  clearDatabase: () => void;
+  loadSampleProducts: () => void;
+  
+  // License Actions
+  activateTrial: () => { success: boolean; message: string };
+  activateCloudLicense: (email: string) => void;
+  activateLicenseWithKey: (key: string, email: string) => { success: boolean; message: string };
+  checkLicense: () => void;
+  regenerateMachineId: () => void;
+  forceTrialActivation: () => { success: boolean; message: string };
+}
+
+const generateMachineId = () => {
+  const stored = localStorage.getItem('machine_id');
+  if (stored && stored.includes('-')) return stored;
+  
+  // Create a unique ID
+  const randomPart1 = Math.random().toString(36).substring(2, 8).toUpperCase().padEnd(6, '0');
+  const randomPart2 = Math.random().toString(36).substring(2, 8).toUpperCase().padEnd(6, '0');
+  const newId = `${randomPart1}-${randomPart2}`;
+  
+  localStorage.setItem('machine_id', newId);
+  return newId;
+};
+
+export const defaultSettings: BusinessSettings = {
+  name: 'EliteCaja',
+  legalName: '',
+  owner: '',
+  address: '',
+  phone: '',
+  whatsapp: '',
+  email: '',
+  rfc: '',
+  website: '',
+  logo: '',
+  receiptMessage: '¡Gracias por su compra!',
+  currency: 'MXN',
+  taxRate: 16,
+  applyTax: false,
+  acceptedPaymentMethods: ['Efectivo', 'Tarjeta', 'Transferencia', 'Mixto', 'Mercado Pago', 'CLIP'],
+  backupFrequency: 'never',
+  lastBackupDate: '',
+  weekStartDay: 1, // Default to Monday
+};
+
+const defaultUser: User = {
+  id: '1',
+  name: 'Admin',
+  role: 'Administrador',
+  pin: '1234',
+};
+
+const defaultProducts: Product[] = [];
+
+export const useStore = create<AppState>()(
+  persist(
+    (set, get) => ({
+      settings: defaultSettings,
+      products: defaultProducts,
+      customers: [],
+      suppliers: [],
+      sales: [],
+      suspendedSales: [],
+      remissions: [],
+      purchaseOrders: [],
+      quotes: [],
+      cashRegisters: [],
+      users: [defaultUser],
+      currentUser: null, // Default to null to force login/license check
+      cart: [],
+      theme: 'light',
+      firebaseUser: null,
+      inventoryMovements: [],
+      license: {
+        status: 'trial',
+        machineId: generateMachineId(),
+        isTrialUsed: false,
+      },
+      dashboardVisibility: {
+        weekSales: true,
+        netProfit: true,
+        monthSales: true,
+        todaySales: true,
+        productCost: true,
+        streamingCost: true,
+      },
+
+      setFirebaseUser: (user) => set({ firebaseUser: user }),
+
+      toggleDashboardVisibility: (key) => set((state) => {
+        const currentVisibility = state.dashboardVisibility || {
+          weekSales: true,
+          netProfit: true,
+          monthSales: true,
+          todaySales: true,
+          productCost: true,
+          streamingCost: true,
+        };
+        return {
+          dashboardVisibility: {
+            ...currentVisibility,
+            [key]: !currentVisibility[key]
+          }
+        };
+      }),
+
+      addInventoryMovement: (movement) => set((state) => ({
+        inventoryMovements: [
+          {
+            ...movement,
+            id: Math.random().toString(36).substr(2, 9),
+            date: new Date().toISOString(),
+          },
+          ...state.inventoryMovements,
+        ],
+      })),
+
+      addCustomer: (customer) => set((state) => ({
+        customers: [...state.customers, { ...customer, id: Math.random().toString(36).substr(2, 9) }],
+      })),
+
+      updateCustomer: (id, updatedCustomer) => set((state) => ({
+        customers: state.customers.map((c) => (c.id === id ? { ...c, ...updatedCustomer } : c)),
+      })),
+
+      deleteCustomer: (id) => set((state) => ({
+        customers: state.customers.filter((c) => c.id !== id),
+      })),
+
+      addSupplier: (supplier) => set((state) => ({
+        suppliers: [...state.suppliers, { ...supplier, id: Math.random().toString(36).substr(2, 9) }],
+      })),
+
+      updateSupplier: (id, updatedSupplier) => set((state) => ({
+        suppliers: state.suppliers.map((s) => (s.id === id ? { ...s, ...updatedSupplier } : s)),
+      })),
+
+      deleteSupplier: (id) => set((state) => ({
+        suppliers: state.suppliers.filter((s) => s.id !== id),
+      })),
+
+      addUser: (user) => set((state) => ({
+        users: [...state.users, { ...user, id: Math.random().toString(36).substr(2, 9) }],
+      })),
+
+      updateUser: (id, updatedUser) => set((state) => ({
+        users: state.users.map((u) => (u.id === id ? { ...u, ...updatedUser } : u)),
+        currentUser: state.currentUser && state.currentUser.id === id ? { ...state.currentUser, ...updatedUser } : state.currentUser,
+      })),
+
+      deleteUser: (id) => set((state) => ({
+        users: state.users.filter((u) => u.id !== id),
+      })),
+
+      updateSettings: (newSettings) => set((state) => ({ settings: { ...state.settings, ...newSettings } })),
+      
+      addProduct: (product) => set((state) => {
+        const newState = { products: [...state.products, product] } as Partial<AppState>;
+        
+        if (product.tracksInventory && product.stock > 0 && state.currentUser) {
+          newState.inventoryMovements = [
+            {
+              id: Math.random().toString(36).substr(2, 9),
+              productId: product.id,
+              productName: product.name,
+              type: 'entrada',
+              quantity: product.stock,
+              previousStock: 0,
+              newStock: product.stock,
+              date: new Date().toISOString(),
+              userId: state.currentUser.id,
+              userName: state.currentUser.name,
+              notes: 'Inventario inicial',
+            },
+            ...state.inventoryMovements,
+          ];
+        }
+        
+        return newState;
+      }),
+      
+      updateProduct: (id, updatedProduct) => set((state) => {
+        const oldProduct = state.products.find(p => p.id === id);
+        const newState = {
+          products: state.products.map((p) => (p.id === id ? { ...p, ...updatedProduct } : p)),
+        } as Partial<AppState>;
+
+        if (oldProduct && updatedProduct.stock !== undefined && oldProduct.stock !== updatedProduct.stock && state.currentUser) {
+          const diff = updatedProduct.stock - oldProduct.stock;
+          newState.inventoryMovements = [
+            {
+              id: Math.random().toString(36).substr(2, 9),
+              productId: oldProduct.id,
+              productName: oldProduct.name,
+              type: 'ajuste',
+              quantity: diff,
+              previousStock: oldProduct.stock,
+              newStock: updatedProduct.stock,
+              date: new Date().toISOString(),
+              userId: state.currentUser.id,
+              userName: state.currentUser.name,
+              notes: 'Ajuste manual',
+            },
+            ...state.inventoryMovements,
+          ];
+        }
+
+        return newState;
+      }),
+      
+      deleteProduct: (id) => set((state) => ({
+        products: state.products.filter((p) => p.id !== id),
+      })),
+
+      addToCart: (product, quantity = 1) => set((state) => {
+        const existingItem = state.cart.find((item) => item.id === product.id);
+        if (existingItem) {
+          return {
+            cart: state.cart.map((item) =>
+              item.id === product.id ? { ...item, quantity: item.quantity + quantity } : item
+            ),
+          };
+        }
+        return {
+          cart: [...state.cart, { ...product, cartId: Math.random().toString(36).substr(2, 9), quantity, discount: 0 }],
+        };
+      }),
+
+      updateCartItem: (cartId, quantity, discount) => set((state) => ({
+        cart: state.cart.map((item) =>
+          item.cartId === cartId ? { ...item, quantity, discount: discount !== undefined ? discount : item.discount } : item
+        ),
+      })),
+
+      removeFromCart: (cartId) => set((state) => ({
+        cart: state.cart.filter((item) => item.cartId !== cartId),
+      })),
+
+      clearCart: () => set({ cart: [] }),
+
+      processSale: (newSale) => set((state) => {
+        const newMovements: InventoryMovement[] = [];
+        
+        // Update inventory
+        const updatedProducts = state.products.map((p) => {
+          const cartItem = newSale.items.find((item) => item.id === p.id);
+          if (cartItem && p.tracksInventory) {
+            const newStock = p.stock - cartItem.quantity;
+            
+            if (state.currentUser) {
+              newMovements.push({
+                id: Math.random().toString(36).substr(2, 9),
+                productId: p.id,
+                productName: p.name,
+                type: 'venta',
+                quantity: -cartItem.quantity,
+                previousStock: p.stock,
+                newStock: newStock,
+                date: new Date().toISOString(),
+                userId: state.currentUser.id,
+                userName: state.currentUser.name,
+                notes: `Venta #${newSale.id}`,
+              });
+            }
+            
+            return { ...p, stock: newStock };
+          }
+          return p;
+        });
+
+        // Update current cash register
+        const currentRegister = state.cashRegisters.find((r) => r.status === 'open');
+        let updatedRegisters = state.cashRegisters;
+        
+        if (currentRegister) {
+          const updatedRegister = { ...currentRegister };
+          updatedRegister.salesTotal = (updatedRegister.salesTotal || 0) + newSale.total;
+          
+          // Update specific payment method totals
+          if (newSale.paymentMethod === 'Mixto' && newSale.mixedPayments) {
+            newSale.mixedPayments.forEach((mp) => {
+              if (mp.method === 'Efectivo') updatedRegister.cashSales = (updatedRegister.cashSales || 0) + mp.amount;
+              else if (mp.method === 'Tarjeta') updatedRegister.cardSales = (updatedRegister.cardSales || 0) + mp.amount;
+              else if (mp.method === 'Transferencia') updatedRegister.transferSales = (updatedRegister.transferSales || 0) + mp.amount;
+              else if (mp.method === 'Mercado Pago') updatedRegister.mercadoPagoSales = (updatedRegister.mercadoPagoSales || 0) + mp.amount;
+              else if (mp.method === 'CLIP') updatedRegister.clipSales = (updatedRegister.clipSales || 0) + mp.amount;
+            });
+          } else {
+            if (newSale.paymentMethod === 'Efectivo') updatedRegister.cashSales = (updatedRegister.cashSales || 0) + newSale.total;
+            if (newSale.paymentMethod === 'Tarjeta') updatedRegister.cardSales = (updatedRegister.cardSales || 0) + newSale.total;
+            if (newSale.paymentMethod === 'Transferencia') updatedRegister.transferSales = (updatedRegister.transferSales || 0) + newSale.total;
+            if (newSale.paymentMethod === 'Mercado Pago') updatedRegister.mercadoPagoSales = (updatedRegister.mercadoPagoSales || 0) + newSale.total;
+            if (newSale.paymentMethod === 'CLIP') updatedRegister.clipSales = (updatedRegister.clipSales || 0) + newSale.total;
+          }
+          
+          const cashExtraIncome = (updatedRegister.movements || [])
+            .filter(m => m.type === 'extra_income' && (m.paymentMethod === 'Efectivo' || !m.paymentMethod))
+            .reduce((sum, m) => sum + m.amount, 0);
+            
+          updatedRegister.expectedCash = (updatedRegister.initialAmount || 0) + (updatedRegister.cashSales || 0) + cashExtraIncome - (updatedRegister.withdrawals || 0);
+          
+          updatedRegisters = state.cashRegisters.map((r) => r.id === currentRegister.id ? updatedRegister : r);
+        }
+
+        // Update customer points
+        let updatedCustomers = state.customers;
+        if (newSale.customerId) {
+          const pointsEarned = newSale.pointsEarned || 0;
+          const pointsUsed = newSale.pointsUsed || 0;
+          updatedCustomers = state.customers.map(c => {
+            if (c.id === newSale.customerId) {
+              return { ...c, points: Math.max(0, (c.points || 0) + pointsEarned - pointsUsed) };
+            }
+            return c;
+          });
+        }
+
+        return {
+          sales: [...state.sales, newSale],
+          products: updatedProducts,
+          cart: [],
+          cashRegisters: updatedRegisters,
+          inventoryMovements: [...newMovements, ...state.inventoryMovements],
+          customers: updatedCustomers,
+        };
+      }),
+
+      updateSale: (id, updatedFields) => set((state) => ({
+        sales: state.sales.map((s) => s.id === id ? { ...s, ...updatedFields } : s),
+      })),
+
+      deleteSale: (saleId) => set((state) => {
+        const saleToDelete = state.sales.find((s) => s.id === saleId);
+        if (!saleToDelete) return state;
+
+        const newMovements: InventoryMovement[] = [];
+        
+        // Restore inventory
+        const updatedProducts = state.products.map((p) => {
+          const cartItem = saleToDelete.items.find((item) => item.id === p.id);
+          if (cartItem && p.tracksInventory) {
+            const newStock = p.stock + cartItem.quantity;
+            
+            if (state.currentUser) {
+              newMovements.push({
+                id: Math.random().toString(36).substr(2, 9),
+                productId: p.id,
+                productName: p.name,
+                type: 'ajuste',
+                quantity: cartItem.quantity,
+                previousStock: p.stock,
+                newStock: newStock,
+                date: new Date().toISOString(),
+                userId: state.currentUser.id,
+                userName: state.currentUser.name,
+                notes: `Cancelación de Venta #${saleToDelete.id}`,
+              });
+            }
+            
+            return { ...p, stock: newStock };
+          }
+          return p;
+        });
+
+        // Update current cash register if open
+        const currentRegister = state.cashRegisters.find((r) => r.status === 'open');
+        let updatedRegisters = state.cashRegisters;
+        
+        if (currentRegister) {
+          const updatedRegister = { ...currentRegister };
+          updatedRegister.salesTotal = (updatedRegister.salesTotal || 0) - saleToDelete.total;
+          
+          if (saleToDelete.paymentMethod === 'Mixto' && saleToDelete.mixedPayments) {
+            saleToDelete.mixedPayments.forEach((mp) => {
+              if (mp.method === 'Efectivo') updatedRegister.cashSales = (updatedRegister.cashSales || 0) - mp.amount;
+              else if (mp.method === 'Tarjeta') updatedRegister.cardSales = (updatedRegister.cardSales || 0) - mp.amount;
+              else if (mp.method === 'Transferencia') updatedRegister.transferSales = (updatedRegister.transferSales || 0) - mp.amount;
+              else if (mp.method === 'Mercado Pago') updatedRegister.mercadoPagoSales = (updatedRegister.mercadoPagoSales || 0) - mp.amount;
+              else if (mp.method === 'CLIP') updatedRegister.clipSales = (updatedRegister.clipSales || 0) - mp.amount;
+            });
+          } else {
+            if (saleToDelete.paymentMethod === 'Efectivo') updatedRegister.cashSales = (updatedRegister.cashSales || 0) - saleToDelete.total;
+            if (saleToDelete.paymentMethod === 'Tarjeta') updatedRegister.cardSales = (updatedRegister.cardSales || 0) - saleToDelete.total;
+            if (saleToDelete.paymentMethod === 'Transferencia') updatedRegister.transferSales = (updatedRegister.transferSales || 0) - saleToDelete.total;
+            if (saleToDelete.paymentMethod === 'Mercado Pago') updatedRegister.mercadoPagoSales = (updatedRegister.mercadoPagoSales || 0) - saleToDelete.total;
+            if (saleToDelete.paymentMethod === 'CLIP') updatedRegister.clipSales = (updatedRegister.clipSales || 0) - saleToDelete.total;
+          }
+          
+          const cashExtraIncome = (updatedRegister.movements || [])
+            .filter(m => m.type === 'extra_income' && (m.paymentMethod === 'Efectivo' || !m.paymentMethod))
+            .reduce((sum, m) => sum + m.amount, 0);
+            
+          updatedRegister.expectedCash = (updatedRegister.initialAmount || 0) + (updatedRegister.cashSales || 0) + cashExtraIncome - (updatedRegister.withdrawals || 0);
+          
+          updatedRegisters = state.cashRegisters.map((r) => r.id === currentRegister.id ? updatedRegister : r);
+        }
+
+        return {
+          sales: state.sales.filter((s) => s.id !== saleId),
+          products: updatedProducts,
+          cashRegisters: updatedRegisters,
+          inventoryMovements: [...newMovements, ...state.inventoryMovements],
+        };
+      }),
+
+      returnSale: (saleId) => set((state) => {
+        const originalSale = state.sales.find((s) => s.id === saleId);
+        if (!originalSale) return state;
+
+        if (originalSale.isReturn) return state; // Don't return a return
+        
+        // Prevent duplicate returns
+        if (state.sales.some(s => s.returnedSaleId === saleId)) {
+          alert('Esta venta ya ha sido devuelta parcialmente o en su totalidad.');
+          return state;
+        }
+
+        const newMovements: InventoryMovement[] = [];
+        
+        // Restore inventory
+        const updatedProducts = state.products.map((p) => {
+          const cartItem = originalSale.items.find((item) => item.id === p.id);
+          if (cartItem && p.tracksInventory) {
+            const newStock = p.stock + cartItem.quantity;
+            
+            if (state.currentUser) {
+              newMovements.push({
+                id: Math.random().toString(36).substr(2, 9),
+                productId: p.id,
+                productName: p.name,
+                type: 'ajuste',
+                quantity: cartItem.quantity,
+                previousStock: p.stock,
+                newStock: newStock,
+                date: new Date().toISOString(),
+                userId: state.currentUser.id,
+                userName: state.currentUser.name,
+                notes: `Devolución de Venta #${originalSale.id}`,
+              });
+            }
+            return { ...p, stock: newStock };
+          }
+          return p;
+        });
+
+        // Update current cash register if open
+        const currentRegister = state.cashRegisters.find((r) => r.status === 'open');
+        let updatedRegisters = state.cashRegisters;
+        
+        if (currentRegister) {
+          const updatedRegister = { ...currentRegister };
+          updatedRegister.salesTotal = (updatedRegister.salesTotal || 0) - originalSale.total;
+          
+          if (originalSale.paymentMethod === 'Mixto' && originalSale.mixedPayments) {
+            originalSale.mixedPayments.forEach((mp) => {
+              if (mp.method === 'Efectivo') updatedRegister.cashSales = (updatedRegister.cashSales || 0) - mp.amount;
+              else if (mp.method === 'Tarjeta') updatedRegister.cardSales = (updatedRegister.cardSales || 0) - mp.amount;
+              else if (mp.method === 'Transferencia') updatedRegister.transferSales = (updatedRegister.transferSales || 0) - mp.amount;
+              else if (mp.method === 'Mercado Pago') updatedRegister.mercadoPagoSales = (updatedRegister.mercadoPagoSales || 0) - mp.amount;
+              else if (mp.method === 'CLIP') updatedRegister.clipSales = (updatedRegister.clipSales || 0) - mp.amount;
+            });
+          } else {
+            if (originalSale.paymentMethod === 'Efectivo') updatedRegister.cashSales = (updatedRegister.cashSales || 0) - originalSale.total;
+            if (originalSale.paymentMethod === 'Tarjeta') updatedRegister.cardSales = (updatedRegister.cardSales || 0) - originalSale.total;
+            if (originalSale.paymentMethod === 'Transferencia') updatedRegister.transferSales = (updatedRegister.transferSales || 0) - originalSale.total;
+            if (originalSale.paymentMethod === 'Mercado Pago') updatedRegister.mercadoPagoSales = (updatedRegister.mercadoPagoSales || 0) - originalSale.total;
+            if (originalSale.paymentMethod === 'CLIP') updatedRegister.clipSales = (updatedRegister.clipSales || 0) - originalSale.total;
+          }
+          
+          const cashExtraIncome = (updatedRegister.movements || [])
+            .filter(m => m.type === 'extra_income' && (m.paymentMethod === 'Efectivo' || !m.paymentMethod))
+            .reduce((sum, m) => sum + m.amount, 0);
+            
+          updatedRegister.expectedCash = (updatedRegister.initialAmount || 0) + (updatedRegister.cashSales || 0) + cashExtraIncome - (updatedRegister.withdrawals || 0);
+          
+          updatedRegisters = state.cashRegisters.map((r) => r.id === currentRegister.id ? updatedRegister : r);
+        }
+
+        const returnSaleObj: Sale = {
+          ...originalSale,
+          id: Math.random().toString(36).substr(2, 9),
+          date: new Date().toISOString(),
+          subtotal: -originalSale.subtotal,
+          tax: -originalSale.tax,
+          total: -originalSale.total,
+          isReturn: true,
+          returnedSaleId: originalSale.id,
+        };
+
+        return {
+          sales: [returnSaleObj, ...state.sales],
+          products: updatedProducts,
+          cashRegisters: updatedRegisters,
+          inventoryMovements: [...newMovements, ...state.inventoryMovements],
+        };
+      }),
+
+      loadSaleIntoCart: (saleId) => {
+        const saleToLoad = get().sales.find((s) => s.id === saleId);
+        if (!saleToLoad) return;
+
+        // First, delete the sale to restore inventory and cash register
+        get().deleteSale(saleId);
+
+        // Then, set the cart to the items from the sale
+        set({
+          cart: saleToLoad.items.map(item => ({
+            ...item,
+            cartId: Math.random().toString(36).substr(2, 9)
+          }))
+        });
+      },
+
+      suspendCart: (name, customerId) => {
+        const { cart } = get();
+        if (cart.length === 0) return;
+
+        const newSuspendedSale: SuspendedSale = {
+          id: Math.random().toString(36).substr(2, 9),
+          name,
+          date: new Date().toISOString(),
+          items: [...cart],
+          customerId
+        };
+
+        set((state) => ({
+          suspendedSales: [...state.suspendedSales, newSuspendedSale],
+          cart: []
+        }));
+      },
+
+      resumeCart: (suspendedSaleId) => {
+        const saleToResume = get().suspendedSales.find((s) => s.id === suspendedSaleId);
+        if (!saleToResume) return;
+
+        set((state) => ({
+          cart: [...saleToResume.items],
+          suspendedSales: state.suspendedSales.filter(s => s.id !== suspendedSaleId)
+        }));
+      },
+
+      deleteSuspendedSale: (suspendedSaleId) => {
+        set((state) => ({
+          suspendedSales: state.suspendedSales.filter((s) => s.id !== suspendedSaleId)
+        }));
+      },
+
+      addRemission: (remission) => set((state) => ({
+        remissions: [...state.remissions, remission],
+      })),
+
+      updateRemission: (id, updatedFields) => set((state) => ({
+        remissions: state.remissions.map((r) => r.id === id ? { ...r, ...updatedFields } : r),
+      })),
+
+      deleteRemission: (id) => set((state) => ({
+        remissions: state.remissions.filter((r) => r.id !== id),
+      })),
+
+      addQuote: (quote) => set((state) => ({
+        quotes: [...state.quotes, quote],
+      })),
+
+      updateQuote: (id, updatedFields) => set((state) => ({
+        quotes: state.quotes.map((q) => q.id === id ? { ...q, ...updatedFields } : q),
+      })),
+
+      deleteQuote: (id) => set((state) => ({
+        quotes: state.quotes.filter((q) => q.id !== id),
+      })),
+
+      addPurchaseOrder: (purchaseOrder) => set((state) => ({
+        purchaseOrders: [...state.purchaseOrders, purchaseOrder],
+      })),
+
+      updatePurchaseOrder: (id, updatedFields) => set((state) => ({
+        purchaseOrders: state.purchaseOrders.map((p) => p.id === id ? { ...p, ...updatedFields } : p),
+      })),
+
+      deletePurchaseOrder: (id) => set((state) => ({
+        purchaseOrders: state.purchaseOrders.filter((p) => p.id !== id),
+      })),
+
+      openRegister: (initialAmount) => set((state) => {
+        const newRegister: CashRegister = {
+          id: Math.random().toString(36).substr(2, 9),
+          openedAt: new Date().toISOString(),
+          initialAmount,
+          salesTotal: 0,
+          cashSales: 0,
+          cardSales: 0,
+          transferSales: 0,
+          mercadoPagoSales: 0,
+          clipSales: 0,
+          withdrawals: 0,
+          extraIncome: 0,
+          expectedCash: initialAmount,
+          status: 'open',
+        };
+        return { cashRegisters: [...state.cashRegisters, newRegister] };
+      }),
+
+      closeRegister: (actualCash) => set((state) => {
+        const currentRegister = state.cashRegisters.find((r) => r.status === 'open');
+        if (!currentRegister) return state;
+
+        const updatedRegister: CashRegister = {
+          ...currentRegister,
+          closedAt: new Date().toISOString(),
+          actualCash,
+          difference: actualCash - currentRegister.expectedCash,
+          status: 'closed',
+        };
+
+        return {
+          cashRegisters: state.cashRegisters.map((r) => r.id === currentRegister.id ? updatedRegister : r),
+        };
+      }),
+
+      addWithdrawal: (amount, description, notes) => set((state) => {
+        const currentRegister = state.cashRegisters.find((r) => r.status === 'open');
+        if (!currentRegister) return state;
+
+        const newMovement = {
+          id: Math.random().toString(36).substr(2, 9),
+          type: 'withdrawal' as const,
+          amount,
+          description,
+          notes,
+          date: new Date().toISOString()
+        };
+
+        const updatedRegister = {
+          ...currentRegister,
+          withdrawals: currentRegister.withdrawals + amount,
+          expectedCash: currentRegister.expectedCash - amount,
+          movements: [...(currentRegister.movements || []), newMovement]
+        };
+
+        return {
+          cashRegisters: state.cashRegisters.map((r) => r.id === currentRegister.id ? updatedRegister : r),
+        };
+      }),
+
+      addExtraIncome: (amount, description, notes, paymentMethod = 'Efectivo', remissionNote, customerId, customerName, customId) => set((state) => {
+        const currentRegister = state.cashRegisters.find((r) => r.status === 'open');
+        if (!currentRegister) return state;
+
+        const newMovement: CashMovement = {
+          id: customId || Math.random().toString(36).substr(2, 9),
+          type: 'extra_income' as const,
+          amount,
+          description,
+          notes,
+          paymentMethod,
+          date: new Date().toISOString(),
+          remissionNote,
+          customerId,
+          customerName
+        };
+
+        const isCash = paymentMethod === 'Efectivo';
+
+        const updatedRegister = {
+          ...currentRegister,
+          extraIncome: currentRegister.extraIncome + amount,
+          expectedCash: currentRegister.expectedCash + (isCash ? amount : 0),
+          movements: [...(currentRegister.movements || []), newMovement]
+        };
+
+        return {
+          cashRegisters: state.cashRegisters.map((r) => r.id === currentRegister.id ? updatedRegister : r),
+        };
+      }),
+
+      deleteMovement: (id) => set((state) => {
+        let targetRegisterIndex = -1;
+        let movementIndex = -1;
+
+        for (let i = 0; i < state.cashRegisters.length; i++) {
+          const register = state.cashRegisters[i];
+          if (register.movements) {
+            const idx = register.movements.findIndex(m => m.id === id);
+            if (idx !== -1) {
+              targetRegisterIndex = i;
+              movementIndex = idx;
+              break;
+            }
+          }
+        }
+
+        if (targetRegisterIndex === -1) return state;
+
+        const targetRegister = state.cashRegisters[targetRegisterIndex];
+        const movement = targetRegister.movements![movementIndex];
+
+        const updatedRegister = { ...targetRegister };
+        updatedRegister.movements = targetRegister.movements!.filter(m => m.id !== id);
+
+        if (movement.type === 'withdrawal') {
+          updatedRegister.withdrawals -= movement.amount;
+          updatedRegister.expectedCash += movement.amount;
+        } else if (movement.type === 'extra_income') {
+          updatedRegister.extraIncome -= movement.amount;
+          const isCash = movement.paymentMethod === 'Efectivo' || !movement.paymentMethod;
+          if (isCash) {
+            updatedRegister.expectedCash -= movement.amount;
+          }
+        }
+        
+        if (updatedRegister.status === 'closed' && updatedRegister.actualCash !== undefined) {
+          updatedRegister.difference = updatedRegister.actualCash - updatedRegister.expectedCash;
+        }
+
+        const newRegisters = [...state.cashRegisters];
+        newRegisters[targetRegisterIndex] = updatedRegister;
+
+        return {
+          cashRegisters: newRegisters,
+        };
+      }),
+
+      editMovement: (id, amount, description, notes, paymentMethod, remissionNote, customerId, customerName) => set((state) => {
+        let targetRegisterIndex = -1;
+        let movementIndex = -1;
+
+        for (let i = 0; i < state.cashRegisters.length; i++) {
+          const register = state.cashRegisters[i];
+          if (register.movements) {
+            const idx = register.movements.findIndex(m => m.id === id);
+            if (idx !== -1) {
+              targetRegisterIndex = i;
+              movementIndex = idx;
+              break;
+            }
+          }
+        }
+
+        if (targetRegisterIndex === -1) return state;
+
+        const targetRegister = state.cashRegisters[targetRegisterIndex];
+        const oldMovement = targetRegister.movements![movementIndex];
+        const amountDiff = amount - oldMovement.amount;
+
+        const updatedMovements = [...targetRegister.movements!];
+        updatedMovements[movementIndex] = {
+          ...oldMovement,
+          amount,
+          description,
+          notes,
+          ...(paymentMethod ? { paymentMethod } : {}),
+          remissionNote,
+          customerId,
+          customerName
+        };
+
+        const updatedRegister = { ...targetRegister, movements: updatedMovements };
+
+        if (oldMovement.type === 'withdrawal') {
+          updatedRegister.withdrawals += amountDiff;
+          updatedRegister.expectedCash -= amountDiff;
+        } else if (oldMovement.type === 'extra_income') {
+          updatedRegister.extraIncome += amountDiff;
+          
+          const oldIsCash = oldMovement.paymentMethod === 'Efectivo' || !oldMovement.paymentMethod;
+          const newIsCash = paymentMethod ? paymentMethod === 'Efectivo' : oldIsCash;
+          
+          if (oldIsCash) updatedRegister.expectedCash -= oldMovement.amount;
+          if (newIsCash) updatedRegister.expectedCash += amount;
+        }
+        
+        if (updatedRegister.status === 'closed' && updatedRegister.actualCash !== undefined) {
+          updatedRegister.difference = updatedRegister.actualCash - updatedRegister.expectedCash;
+        }
+
+        const newRegisters = [...state.cashRegisters];
+        newRegisters[targetRegisterIndex] = updatedRegister;
+
+        return {
+          cashRegisters: newRegisters,
+        };
+      }),
+
+      login: (pin) => {
+        const users = get().users || [];
+        let user = users.find((u) => u.pin === pin);
+        
+        // Fallback: If '1234' is used but not found (e.g. user restored db with different PIN/users key)
+        if (!user && pin === '1234' && users.length > 0) {
+          user = users.find(u => u.role === 'Administrador') || users[0];
+        }
+        
+        // Fallback 2: If users list is empty, restore default admin database user
+        if (!user && pin === '1234') {
+          const adminUser: User = {
+            id: '1',
+            name: 'Admin',
+            role: 'Administrador',
+            pin: '1234'
+          };
+          set({ users: [adminUser], currentUser: adminUser });
+          return true;
+        }
+
+        if (user) {
+          set({ currentUser: user });
+          return true;
+        }
+        return false;
+      },
+
+      logout: () => set({ currentUser: null }),
+
+      toggleTheme: () => set((state) => {
+        const newTheme = state.theme === 'light' ? 'dark' : 'light';
+        if (newTheme === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+        return { theme: newTheme };
+      }),
+
+      clearDatabase: () => set((state) => ({
+        products: [],
+        customers: [],
+        suppliers: [],
+        sales: [],
+        suspendedSales: [],
+        remissions: [],
+        purchaseOrders: [],
+        quotes: [],
+        cashRegisters: [],
+        inventoryMovements: [],
+        cart: [],
+        settings: defaultSettings,
+        users: state.users,
+        currentUser: state.currentUser,
+        license: state.license
+      })),
+
+      loadSampleProducts: () => {
+        const sampleProducts: Product[] = [
+          {
+            id: 'sample-1',
+            name: 'Coca-Cola Original 600ml',
+            category: 'Bebidas',
+            supplier: 'Coca-Cola FEMSA',
+            barcode: '7501055300075',
+            purchasePrice: 12.50,
+            salePrice: 17.00,
+            tracksInventory: true,
+            stock: 45,
+            minStock: 10,
+            image: ''
+          },
+          {
+            id: 'sample-2',
+            name: 'Papas Sabritas Originales 42g',
+            category: 'Botanas',
+            supplier: 'Pepsico Alimentos',
+            barcode: '7501011115323',
+            purchasePrice: 13.00,
+            salePrice: 18.50,
+            tracksInventory: true,
+            stock: 30,
+            minStock: 8,
+            image: ''
+          },
+          {
+            id: 'sample-3',
+            name: 'Marinela Gansito 50g',
+            category: 'Panadería',
+            supplier: 'Grupo Bimbo',
+            barcode: '7501000111200',
+            purchasePrice: 11.00,
+            salePrice: 15.00,
+            tracksInventory: true,
+            stock: 24,
+            minStock: 5,
+            image: ''
+          },
+          {
+            id: 'sample-4',
+            name: 'Agua Purificada Ciel 1L',
+            category: 'Bebidas',
+            supplier: 'Coca-Cola FEMSA',
+            barcode: '7501055305148',
+            purchasePrice: 8.00,
+            salePrice: 12.00,
+            tracksInventory: true,
+            stock: 50,
+            minStock: 12,
+            image: ''
+          },
+          {
+            id: 'sample-5',
+            name: 'Galletas Chokis Original 57g',
+            category: 'Galletas',
+            supplier: 'Pepsico Alimentos',
+            barcode: '7501011131019',
+            purchasePrice: 12.00,
+            salePrice: 16.50,
+            tracksInventory: true,
+            stock: 35,
+            minStock: 10,
+            image: ''
+          },
+          {
+            id: 'sample-6',
+            name: 'Leche Entera Lala 1L',
+            category: 'Lácteos',
+            supplier: 'Grupo Lala',
+            barcode: '7501020512516',
+            purchasePrice: 21.00,
+            salePrice: 26.50,
+            tracksInventory: true,
+            stock: 20,
+            minStock: 6,
+            image: ''
+          },
+          {
+            id: 'sample-7',
+            name: 'Chocolate Nito Bimbo 62g',
+            category: 'Panadería',
+            supplier: 'Grupo Bimbo',
+            barcode: '7501000153248',
+            purchasePrice: 10.50,
+            salePrice: 14.00,
+            tracksInventory: true,
+            stock: 15,
+            minStock: 5,
+            image: ''
+          },
+          {
+            id: 'sample-8',
+            name: 'Atún Dolores en Agua 140g',
+            category: 'Despensa',
+            supplier: 'Distribuidora Dolores',
+            barcode: '7501003345510',
+            purchasePrice: 16.00,
+            salePrice: 22.00,
+            tracksInventory: true,
+            stock: 40,
+            minStock: 8,
+            image: ''
+          },
+          {
+            id: 'sample-9',
+            name: 'Mayonesa McCormick con Limón 190g',
+            category: 'Despensa',
+            supplier: 'McCormick de México',
+            barcode: '7501003302216',
+            purchasePrice: 22.00,
+            salePrice: 29.50,
+            tracksInventory: true,
+            stock: 18,
+            minStock: 4,
+            image: ''
+          },
+          {
+            id: 'sample-10',
+            name: 'Refresco Sprite 600ml',
+            category: 'Bebidas',
+            supplier: 'Coca-Cola FEMSA',
+            barcode: '7501055310852',
+            purchasePrice: 11.50,
+            salePrice: 16.00,
+            tracksInventory: true,
+            stock: 25,
+            minStock: 6,
+            image: ''
+          }
+        ];
+
+        set((state) => {
+          const existingBarcodes = new Set(state.products.map(p => p.barcode).filter(Boolean));
+          const existingIds = new Set(state.products.map(p => p.id));
+          const newProducts = [...state.products];
+
+          sampleProducts.forEach((sample) => {
+            if (!existingBarcodes.has(sample.barcode) && !existingIds.has(sample.id)) {
+              newProducts.push(sample);
+            } else {
+              const uniqueSample = {
+                ...sample,
+                id: `sample-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+                barcode: `${sample.barcode}-${Math.random().toString(36).substring(2, 4).toUpperCase()}`
+              };
+              newProducts.push(uniqueSample);
+            }
+          });
+
+          return { products: newProducts };
+        });
+      },
+
+      activateTrial: () => {
+        const state = get();
+        
+        const startDate = new Date();
+        const endDate = new Date(startDate.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 days
+
+        const newLicense: License = {
+          ...state.license,
+          status: 'trial',
+          trialStartDate: startDate.toISOString(),
+          trialEndDate: endDate.toISOString(),
+          isTrialUsed: true
+        };
+
+        set({ license: newLicense });
+        return { success: true, message: 'Prueba demo de 3 días iniciada correctamente.' };
+      },
+
+      activateCloudLicense: (email: string) => {
+        const state = get();
+        set({
+          license: {
+            ...state.license,
+            status: 'active',
+            activatedAt: new Date().toISOString(),
+            cloudEmail: email
+          }
+        });
+      },
+
+      activateLicenseWithKey: (key: string, email: string) => {
+        const cleanEmail = email.toLowerCase().trim();
+        const expectedKey = generateLicenseKey(cleanEmail);
+        
+        if (key.trim() === expectedKey) {
+          set((state) => ({
+            license: {
+              ...state.license,
+              status: 'active',
+              activatedAt: new Date().toISOString(),
+              cloudEmail: cleanEmail,
+              licenseKey: key.trim()
+            }
+          }));
+          return { success: true, message: `¡Licencia activada con éxito para ${cleanEmail}!` };
+        } else {
+          return { success: false, message: `La clave de licencia introducida no coincide con el correo ${cleanEmail}.` };
+        }
+      },
+
+      forceTrialActivation: () => {
+        const state = get();
+        const startDate = new Date();
+        const endDate = new Date(startDate.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 days
+
+        const newLicense: License = {
+          ...state.license,
+          status: 'trial',
+          trialStartDate: startDate.toISOString(),
+          trialEndDate: endDate.toISOString(),
+          isTrialUsed: true,
+          activatedAt: startDate.toISOString()
+        };
+
+        set({ license: newLicense });
+        return { success: true, message: 'Prueba demo de 3 días re-activada correctamente.' };
+      },
+
+      checkLicense: () => {
+        const state = get();
+        const now = new Date();
+        
+        // If they had 'active' status but no licenseKey, force them to start the 3-day demo trial!
+        if (state.license.status === 'active' && !state.license.licenseKey) {
+          const startDate = new Date();
+          const endDate = new Date(startDate.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 days
+          set({
+            license: {
+              status: 'trial',
+              machineId: state.license.machineId || generateMachineId(),
+              trialStartDate: startDate.toISOString(),
+              trialEndDate: endDate.toISOString(),
+              isTrialUsed: true
+            }
+          });
+          return;
+        }
+
+        // If status is none or no trialEndDate, setup the 3-day trial
+        if (state.license.status === 'none' || !state.license.trialEndDate) {
+          const startDate = new Date();
+          const endDate = new Date(startDate.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 days
+          set({
+            license: {
+              ...state.license,
+              status: 'trial',
+              trialStartDate: startDate.toISOString(),
+              trialEndDate: endDate.toISOString(),
+              isTrialUsed: true
+            }
+          });
+          return;
+        }
+
+        // If it's active, we validate it matches the logged-in Google user and is correct
+        if (state.license.status === 'active') {
+          const firebaseUser = state.firebaseUser;
+          // Validate if they are logged in
+          if (firebaseUser?.email && state.license.cloudEmail) {
+            const currentEmail = firebaseUser.email.toLowerCase().trim();
+            const licenseEmail = state.license.cloudEmail.toLowerCase().trim();
+            if (currentEmail !== licenseEmail) {
+              set({
+                license: {
+                  ...state.license,
+                  status: 'expired'
+                }
+              });
+              return;
+            }
+          }
+          // Validate the key itself matches
+          if (state.license.cloudEmail && state.license.licenseKey) {
+            const expectedKey = generateLicenseKey(state.license.cloudEmail);
+            if (state.license.licenseKey !== expectedKey) {
+              set({
+                license: {
+                  ...state.license,
+                  status: 'expired'
+                }
+              });
+              return;
+            }
+          }
+        }
+
+        if (state.license.status === 'trial' && state.license.trialEndDate) {
+          const startDate = state.license.trialStartDate ? new Date(state.license.trialStartDate) : new Date();
+          const endDate = new Date(state.license.trialEndDate);
+          const durationMs = endDate.getTime() - startDate.getTime();
+
+          // If the stored trial is not exactly 3 days (e.g. the old 30-minute trial or older 5-day trial), update it to exactly 3 days from now
+          if (durationMs < 2.9 * 24 * 60 * 60 * 1000 || durationMs > 3.1 * 24 * 60 * 60 * 1000) {
+            const newStart = new Date();
+            const newEnd = new Date(newStart.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 days
+            set({
+              license: {
+                ...state.license,
+                status: 'trial',
+                trialStartDate: newStart.toISOString(),
+                trialEndDate: newEnd.toISOString()
+              }
+            });
+            return;
+          }
+
+          if (now > endDate) {
+            set({
+              license: {
+                ...state.license,
+                status: 'expired'
+              }
+            });
+          }
+        }
+      },
+
+      regenerateMachineId: () => {
+        localStorage.removeItem('machine_id'); // clear it
+        const newId = generateMachineId();
+        set((state) => ({
+          license: {
+            ...state.license,
+            machineId: newId,
+            status: 'none',
+            isTrialUsed: false,
+            trialEndDate: undefined,
+            trialStartDate: undefined
+          }
+        }));
+      }
+    }),
+    {
+      name: 'pos-storage',
+      version: 6,
+      partialize: (state) => {
+        const { firebaseUser, ...rest } = state;
+        return rest;
+      },
+      migrate: (persistedState: any, version: number) => {
+        if (!persistedState) return persistedState;
+        
+        const state = { ...persistedState };
+        
+        if (version < 6) {
+          state.products = [];
+          state.customers = [];
+          state.sales = [];
+          state.remissions = [];
+          state.cashRegisters = [];
+          state.inventoryMovements = [];
+          state.cart = [];
+        }
+
+        // Version 2 migration logic (ensure fields exist)
+        if (version < 2) {
+          state.dashboardVisibility = state.dashboardVisibility || {
+            weekSales: true,
+            netProfit: true,
+            monthSales: true,
+            todaySales: true,
+            productCost: true,
+          };
+          state.settings = {
+            ...defaultSettings,
+            ...(state.settings || {})
+          };
+        }
+
+        // Version 3 migration logic (aggressive check for all critical fields)
+        if (version < 3) {
+          if (!state.settings) state.settings = defaultSettings;
+          if (!state.dashboardVisibility) state.dashboardVisibility = {
+            weekSales: true,
+            netProfit: true,
+            monthSales: true,
+            todaySales: true,
+            productCost: true,
+          };
+          if (!state.products) state.products = defaultProducts;
+          if (!state.users) state.users = [defaultUser];
+          if (!state.customers) state.customers = [];
+          if (!state.suppliers) state.suppliers = [];
+          if (!state.sales) state.sales = [];
+          if (!state.remissions) state.remissions = [];
+          if (!state.cashRegisters) state.cashRegisters = [];
+          if (!state.inventoryMovements) state.inventoryMovements = [];
+          if (!state.cart) state.cart = [];
+          if (!state.theme) state.theme = 'light';
+        }
+
+        if (!state.license) {
+          state.license = {
+            status: 'trial',
+            machineId: generateMachineId(),
+            isTrialUsed: false
+          };
+        } else if (state.license.status === 'active' && !state.license.licenseKey) {
+          state.license.status = 'trial';
+          state.license.trialStartDate = undefined;
+          state.license.trialEndDate = undefined;
+          state.license.isTrialUsed = false;
+        }
+
+        // Version 5 migration logic (remove deterministic machine IDs)
+        if (version < 5) {
+          if (state.license && state.license.machineId && !state.license.machineId.includes('-')) {
+            // Remove deterministic machine ID from old browser storage
+            localStorage.removeItem('machine_id');
+            state.license.machineId = generateMachineId();
+          }
+        }
+        
+        // Remove license data if present
+        delete state.licenseType;
+        delete state.licenseKey;
+        delete state.demoStartDate;
+        
+        return state;
+      },
+      onRehydrateStorage: () => (state, error) => {
+        if (error) {
+          console.error('Error during hydration:', error);
+        }
+      },
+    }
+  )
+);

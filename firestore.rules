@@ -1,0 +1,31 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    match /stores/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      
+      match /{document=**} {
+        allow read, write: if isSignedIn() && request.auth.uid == userId;
+      }
+    }
+
+    match /licenses/{licenseId} {
+      // Users can only read licenses where the email matches their verified email
+      allow get: if isSignedIn() && resource.data.email == request.auth.token.email;
+      allow list: if isSignedIn() && resource.data.email == request.auth.token.email;
+
+      // Licenses cannot be created or modified by clients.
+      // You (the admin) will create them manually from the Firebase Console or via an admin tool.
+      allow write: if false;
+    }
+  }
+}

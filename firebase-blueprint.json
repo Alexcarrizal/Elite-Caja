@@ -1,0 +1,123 @@
+{
+  "entities": {
+    "License": {
+      "title": "License",
+      "description": "Represents a software license tied to a user's Google Account.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "The user's email address matching Firebase Auth."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "expired", "suspended"],
+          "description": "Current status of the license."
+        },
+        "validUntil": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO timestamp for when the license expires, or null if lifetime."
+        },
+        "plan": {
+          "type": "string",
+          "enum": ["premium", "lifetime", "basic"],
+          "description": "The purchased plan."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["email", "status", "createdAt", "updatedAt"]
+    },
+    "RemissionItem": {
+      "title": "RemissionItem",
+      "description": "An item or line of concept inside a remission note.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "description": { "type": "string" },
+        "quantity": { "type": "number" },
+        "unitPrice": { "type": "number" },
+        "total": { "type": "number" },
+        "warranty": { "type": "string" }
+      },
+      "required": ["id", "description", "quantity", "unitPrice", "total"]
+    },
+    "Remission": {
+      "title": "Remission",
+      "description": "Stores a customer remission note containing items, date, folio, and customer info.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "folio": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "customerName": { "type": "string" },
+        "customerId": { "type": "string" },
+        "items": { "type": "array", "items": { "$ref": "#/entities/RemissionItem" } },
+        "total": { "type": "number" },
+        "notes": { "type": "string" },
+        "paymentMethod": { "type": "string" },
+        "commission": { "type": "number" },
+        "commissionPayer": { "type": "string", "enum": ["cliente", "vendedor"] },
+        "term": { "type": "string" }
+      },
+      "required": ["id", "folio", "date", "customerName", "items", "total"]
+    },
+    "PurchaseOrderItem": {
+      "title": "PurchaseOrderItem",
+      "description": "An item or line inside a purchase order.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "description": { "type": "string" },
+        "quantity": { "type": "number" },
+        "unitPrice": { "type": "number" },
+        "total": { "type": "number" }
+      },
+      "required": ["id", "description", "quantity", "unitPrice", "total"]
+    },
+    "PurchaseOrder": {
+      "title": "PurchaseOrder",
+      "description": "Stores a supplier purchase order containing items, date, folio, and supplier info.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "folio": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "supplierId": { "type": "string" },
+        "supplierName": { "type": "string" },
+        "items": { "type": "array", "items": { "$ref": "#/entities/PurchaseOrderItem" } },
+        "total": { "type": "number" },
+        "notes": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pendiente", "Enviada", "Recibida", "Cancelada"] }
+      },
+      "required": ["id", "folio", "date", "supplierId", "supplierName", "items", "total", "status"]
+    }
+  },
+  "firestore": {
+    "licenses/{licenseId}": {
+      "schema": {
+        "$ref": "#/entities/License"
+      },
+      "description": "Stores user licenses, keyed by user ID or a random ID."
+    },
+    "stores/{userId}/remissions/{remissionId}": {
+      "schema": {
+        "$ref": "#/entities/Remission"
+      },
+      "description": "Stores the user's remission notes."
+    },
+    "stores/{userId}/purchaseOrders/{purchaseOrderId}": {
+      "schema": {
+        "$ref": "#/entities/PurchaseOrder"
+      },
+      "description": "Stores the user's purchase orders."
+    }
+  }
+}

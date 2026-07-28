@@ -1,0 +1,232 @@
+export type PaymentMethodType = 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'Mixto' | 'Mercado Pago' | 'CLIP';
+
+export interface BusinessSettings {
+  name: string;
+  legalName: string;
+  owner: string;
+  address: string;
+  phone: string;
+  whatsapp: string;
+  email: string;
+  rfc: string;
+  website?: string;
+  logo: string; // Base64 or URL
+  receiptMessage: string;
+  currency: string;
+  taxRate: number; // Percentage
+  applyTax: boolean; // Whether to apply tax to sales
+  acceptedPaymentMethods: PaymentMethodType[];
+  backupFrequency?: 'never' | 'weekly' | 'biweekly' | 'monthly';
+  lastBackupDate?: string;
+  weekStartDay?: number; // 0 for Sunday, 1 for Monday, etc.
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  contactName?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  notes?: string;
+}
+
+export interface Customer {
+  id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  points?: number;
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  category: string;
+  subcategory?: string;
+  supplier: string;
+  barcode: string;
+  purchasePrice: number;
+  salePrice: number;
+  tracksInventory: boolean;
+  stock: number;
+  minStock: number;
+  expirationDate?: string; // ISO date string
+  purchaseDate?: string; // ISO date string or YYYY-MM-DD
+  image: string; // Base64 or URL
+  warranty?: string; // Optional warranty information
+}
+
+export interface CartItem extends Product {
+  cartId: string;
+  quantity: number;
+  discount: number; // Value of the discount
+  discountType?: 'percentage' | 'fixed';
+}
+
+export interface SuspendedSale {
+  id: string;
+  name: string;
+  date: string;
+  items: CartItem[];
+  customerId: string;
+}
+
+export interface Sale {
+  id: string;
+  date: string;
+  items: CartItem[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  paymentMethod: PaymentMethodType;
+  mixedPayments?: { method: PaymentMethodType; amount: number }[];
+  cashReceived?: number;
+  change?: number;
+  commission?: number;
+  commissionPayer?: 'cliente' | 'vendedor';
+  term?: string; // e.g., 'Contado', '3 MSI'
+  customerId?: string;
+  customerName?: string;
+  globalDiscount?: number;
+  globalDiscountType?: 'percentage' | 'fixed';
+  isReturn?: boolean;
+  returnedSaleId?: string;
+  pointsEarned?: number;
+  pointsUsed?: number;
+}
+
+export interface CashMovement {
+  id: string;
+  type: 'withdrawal' | 'extra_income';
+  amount: number;
+  description: string;
+  notes?: string;
+  date: string;
+  paymentMethod?: PaymentMethodType;
+  remissionNote?: string;
+  customerId?: string;
+  customerName?: string;
+}
+
+export interface CashRegister {
+  id: string;
+  openedAt: string;
+  closedAt?: string;
+  initialAmount: number;
+  salesTotal: number;
+  cashSales: number;
+  cardSales: number;
+  transferSales: number;
+  mercadoPagoSales: number;
+  clipSales: number;
+  withdrawals: number;
+  extraIncome: number;
+  expectedCash: number;
+  actualCash?: number;
+  difference?: number;
+  status: 'open' | 'closed';
+  movements?: CashMovement[];
+}
+
+export interface User {
+  id: string;
+  name: string;
+  role: 'Administrador' | 'Cajero' | 'Supervisor';
+  pin: string;
+}
+
+export type MovementType = 'entrada' | 'salida' | 'ajuste' | 'venta';
+
+export interface InventoryMovement {
+  id: string;
+  productId: string;
+  productName: string;
+  type: MovementType;
+  quantity: number;
+  previousStock: number;
+  newStock: number;
+  date: string;
+  userId: string;
+  userName: string;
+  notes?: string;
+}
+
+export interface RemissionItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+  warranty?: string;
+}
+
+export interface Remission {
+  id: string;
+  folio: string;
+  date: string;
+  customerName: string;
+  customerId?: string;
+  items: RemissionItem[];
+  total: number;
+  notes?: string;
+  paymentMethod?: PaymentMethodType;
+  commission?: number;
+  commissionPayer?: 'cliente' | 'vendedor';
+  term?: string;
+}
+
+export interface License {
+  status: 'trial' | 'active' | 'expired' | 'blocked' | 'none';
+  trialStartDate?: string;
+  trialEndDate?: string;
+  activatedAt?: string;
+  machineId: string;
+  isTrialUsed: boolean;
+  cloudEmail?: string;
+  licenseKey?: string;
+}
+
+export interface PurchaseOrderItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  folio: string;
+  date: string;
+  supplierId: string;
+  supplierName: string;
+  items: PurchaseOrderItem[];
+  total: number;
+  notes?: string;
+  status: 'Pendiente' | 'Enviada' | 'Recibida' | 'Cancelada';
+}
+
+export interface QuoteItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+  warranty?: string;
+}
+
+export interface Quote {
+  id: string;
+  folio: string;
+  date: string;
+  customerName: string;
+  customerAddress: string;
+  customerPhone: string;
+  sellerName: string;
+  sellerPhone: string;
+  items: QuoteItem[];
+  total: number;
+  notes?: string;
+}
+
