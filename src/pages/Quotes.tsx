@@ -442,20 +442,12 @@ export default function Quotes() {
                       Formatos de Exportación
                     </span>
 
-                    <div className="grid grid-cols-3 gap-2">
-                      <button
-                        onClick={() => createdQuote && generateQuotePDF(createdQuote, settings, 'ticket-80mm')}
-                        className="py-2.5 px-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs transition-all flex items-center justify-center shadow-lg shadow-blue-600/10"
-                        title="Imprimir Ticket Térmico 80mm"
-                      >
-                        <Printer className="w-3.5 h-3.5 mr-1 text-white shrink-0" />
-                        Ticket
-                      </button>
+                    <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => generateQuotePDF(createdQuote, settings, 'media-carta')}
-                        className="py-2.5 px-2 bg-gray-850 hover:bg-gray-700 text-white font-semibold rounded-xl text-xs transition-all flex items-center justify-center border border-gray-700 hover:border-gray-650 shadow-sm"
+                        className="py-2.5 px-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs transition-all flex items-center justify-center shadow-lg shadow-blue-600/10"
                       >
-                        <Printer className="w-3.5 h-3.5 mr-1 text-blue-400 shrink-0" />
+                        <Printer className="w-3.5 h-3.5 mr-1 text-white shrink-0" />
                         Media Carta
                       </button>
                       <button
@@ -552,14 +544,6 @@ export default function Quotes() {
                   </td>
                   <td className="p-4 text-right">
                     <div className="flex justify-end space-x-2">
-                      <button
-                        onClick={() => handlePrintQuote(quote, 'ticket-80mm')}
-                        className="p-2 text-emerald-650 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-all flex items-center justify-center gap-1 border border-transparent hover:border-emerald-200"
-                        title="Imprimir Ticket 80mm"
-                      >
-                        <Printer className="w-4 h-4 shrink-0 text-emerald-500" />
-                        <span className="text-[10px] font-bold">Ticket</span>
-                      </button>
                       <button
                         onClick={() => handlePrintQuote(quote, 'media-carta')}
                         className="p-2 text-blue-650 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-all flex items-center justify-center gap-1 border border-transparent hover:border-blue-200"

@@ -604,21 +604,13 @@ export default function Remissions() {
                       Configuración de Impresión
                     </span>
                     
-                    <div className="grid grid-cols-3 gap-2">
-                      <button
-                        onClick={() => generateRemissionPDF(createdRemission, settings, 'ticket-80mm')}
-                        className="py-2.5 px-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs transition-all flex items-center justify-center shadow-lg shadow-blue-600/10"
-                        title="Imprimir Ticket Térmico"
-                      >
-                        <Printer className="w-3.5 h-3.5 mr-1 text-white shrink-0" />
-                        Ticket
-                      </button>
+                    <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => generateRemissionPDF(createdRemission, settings, 'media-carta')}
-                        className="py-2.5 px-2 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-xl text-xs transition-all flex items-center justify-center border border-gray-700 hover:border-gray-650 shadow-sm"
+                        className="py-2.5 px-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs transition-all flex items-center justify-center shadow-lg shadow-blue-600/10"
                         title="Imprimir duplicado en media hoja carta"
                       >
-                        <Printer className="w-3.5 h-3.5 mr-1 text-blue-400 shrink-0" />
+                        <Printer className="w-3.5 h-3.5 mr-1 text-white shrink-0" />
                         Media Carta
                       </button>
                       <button
@@ -732,14 +724,6 @@ export default function Remissions() {
                       >
                         <FileText className="w-4 h-4 shrink-0 text-indigo-505" />
                         <span className="text-[10px] font-bold">Carta</span>
-                      </button>
-                      <button
-                        onClick={() => handlePrintRemission(remission, 'ticket-80mm')}
-                        className="p-2 text-emerald-650 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-all flex items-center justify-center gap-1 border border-transparent hover:border-emerald-200"
-                        title="Imprimir Ticket"
-                      >
-                        <Printer className="w-4 h-4 shrink-0 text-emerald-500" />
-                        <span className="text-[10px] font-bold">Ticket</span>
                       </button>
                       <button
                         onClick={() => handleStartEdit(remission)}
