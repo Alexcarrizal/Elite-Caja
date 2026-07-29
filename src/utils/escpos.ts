@@ -248,10 +248,7 @@ export function buildESCPOSBuffer(
     }
   }
 
-  // 7. Feed lines before cut (minimal feed for paper cutter distance)
-  addBytes([ESC, 0x64, 0x01]); // Feed 1 line only
-
-  // 8. ESC/POS Cut Command
+  // 7. ESC/POS Cut Command (Immediate paper cut after last line)
   addBytes([GS, 0x56, 0x42, 0x00]); // GS V 66 0 (Cut paper)
   addBytes([ESC, 0x69]); // Fallback ESC i (Full cut on older POS printers)
 

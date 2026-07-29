@@ -721,12 +721,12 @@ export const generateTicketPDF = (
       padding: 0;
     }
     @page {
-      size: auto;
+      size: ${paperWidthStr} auto;
       margin: 0;
     }
     @media print {
       @page {
-        size: auto;
+        size: ${paperWidthStr} auto;
         margin: 0;
       }
       header, footer, nav { display: none !important; }
@@ -797,6 +797,9 @@ export const generateTicketPDF = (
       setTimeout(function() {
         window.focus();
         window.print();
+        if (window.opener || window.name === 'print_popup') {
+          setTimeout(function() { window.close(); }, 500);
+        }
       }, 100);
     }
 

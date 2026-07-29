@@ -341,8 +341,15 @@ export default function SalesHistory() {
                           </>
                         )}
                         <button
-                          onClick={() => generateReceiptPDF(sale, settings, 'ticket-80mm')}
+                          onClick={() => generateReceiptPDF(sale, settings, 'ticket-58mm')}
                           className="p-2 text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/30 rounded-lg transition-colors inline-flex"
+                          title="Imprimir Ticket Térmico 58mm"
+                        >
+                          <Printer className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => generateReceiptPDF(sale, settings, 'ticket-80mm')}
+                          className="p-2 text-teal-600 hover:bg-teal-50 dark:text-teal-400 dark:hover:bg-teal-900/30 rounded-lg transition-colors inline-flex"
                           title="Imprimir Ticket Térmico 80mm"
                         >
                           <Printer className="w-5 h-5" />
@@ -542,8 +549,16 @@ export default function SalesHistory() {
             
             <div className="p-6 border-t border-gray-100 dark:border-gray-700 flex flex-wrap gap-2 justify-end">
               <button 
-                onClick={() => selectedSale && generateReceiptPDF(selectedSale, settings, 'ticket-80mm')}
+                onClick={() => selectedSale && generateReceiptPDF(selectedSale, settings, 'ticket-58mm')}
                 className="px-4 py-2 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors flex items-center text-sm shadow-sm"
+                title="Imprimir ticket para impresora térmica de 58mm (altura automática)"
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                Ticket (58mm)
+              </button>
+              <button 
+                onClick={() => selectedSale && generateReceiptPDF(selectedSale, settings, 'ticket-80mm')}
+                className="px-4 py-2 bg-teal-600 text-white font-medium rounded-lg hover:bg-teal-700 transition-colors flex items-center text-sm shadow-sm"
                 title="Imprimir ticket para impresora térmica de 80mm"
               >
                 <Printer className="w-4 h-4 mr-2" />
