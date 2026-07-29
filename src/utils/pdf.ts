@@ -707,13 +707,14 @@ export const generateTicketPDF = (
 
   // Build complete print HTML for thermal roll printers
   const paperWidthStr = is80mm ? '80mm' : '58mm';
-  const contentWidthStr = is80mm ? '74mm' : '52mm';
+  const paperSizeStr = is80mm ? '80mm 210mm' : '58mm 210mm';
+  const contentWidthStr = is80mm ? '74mm' : '50mm';
 
   const fullHtml = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Ticket #${data.id}</title>
+  <title></title>
   <style>
     * {
       box-sizing: border-box !important;
@@ -721,40 +722,32 @@ export const generateTicketPDF = (
       padding: 0;
     }
     @page {
-      size: ${paperWidthStr} portrait;
+      size: ${paperSizeStr} portrait;
       margin: 0 !important;
     }
     @media print {
       @page {
-        size: ${paperWidthStr} portrait;
+        size: ${paperSizeStr} portrait;
         margin: 0 !important;
       }
       header, footer, nav { display: none !important; }
       html, body {
         width: ${paperWidthStr} !important;
         max-width: ${paperWidthStr} !important;
-        height: auto !important;
-        min-height: 0 !important;
-        max-height: none !important;
         margin: 0 !important;
         padding: 0 !important;
         background-color: #fff !important;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
         display: block !important;
-        overflow: hidden !important;
       }
       #ticket-container {
         width: ${contentWidthStr} !important;
         max-width: ${contentWidthStr} !important;
-        height: auto !important;
-        min-height: 0 !important;
-        max-height: none !important;
         margin: 0 auto !important;
-        padding: 0 !important;
+        padding: 1mm 0 !important;
         box-sizing: border-box !important;
         display: block !important;
-        overflow: hidden !important;
         page-break-after: avoid !important;
         break-after: avoid !important;
         page-break-inside: avoid !important;
@@ -766,12 +759,8 @@ export const generateTicketPDF = (
       padding: 0 !important;
       width: ${paperWidthStr} !important;
       max-width: ${paperWidthStr} !important;
-      height: auto !important;
-      min-height: 0 !important;
-      max-height: none !important;
       background-color: #fff !important;
       display: block !important;
-      overflow: hidden !important;
     }
     body {
       font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -787,14 +776,10 @@ export const generateTicketPDF = (
     #ticket-container {
       width: ${contentWidthStr} !important;
       max-width: ${contentWidthStr} !important;
-      height: auto !important;
-      min-height: 0 !important;
-      max-height: none !important;
       margin: 0 auto !important;
-      padding: 0 !important;
+      padding: 1mm 0 !important;
       box-sizing: border-box !important;
       display: block !important;
-      overflow: hidden !important;
     }
     #ticket-container > *:last-child {
       margin-bottom: 0 !important;
