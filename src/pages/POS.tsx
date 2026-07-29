@@ -1332,22 +1332,14 @@ export default function POS() {
                     Opciones de Impresión
                   </span>
                   
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <button
                       onClick={() => handlePrintReceipt('ticket-80mm')}
                       className="py-2.5 px-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs transition-all flex items-center justify-center shadow-lg shadow-blue-600/10"
-                      title="Imprimir Ticket Térmico mediante diálogo de impresión de Windows/Navegador"
+                      title="Imprimir Ticket Térmico"
                     >
                       <Printer className="w-3.5 h-3.5 mr-1 text-white shrink-0" />
                       Ticket
-                    </button>
-                    <button
-                      onClick={handleDirectESCPOS}
-                      className="py-2.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs transition-all flex items-center justify-center shadow-lg shadow-emerald-600/10"
-                      title="Imprimir directamente a la impresora térmica por USB/COM sin cuadro de diálogo (0 desperdicio de papel)"
-                    >
-                      <Printer className="w-3.5 h-3.5 mr-1 text-white shrink-0" />
-                      Ticket USB
                     </button>
                     <button
                       onClick={() => handlePrintReceipt('media-carta')}
