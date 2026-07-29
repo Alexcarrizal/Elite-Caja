@@ -707,7 +707,6 @@ export const generateTicketPDF = (
 
   // Build complete print HTML for thermal roll printers
   const paperWidthStr = is80mm ? '80mm' : '58mm';
-  const paperSizeStr = is80mm ? '80mm 210mm' : '58mm 210mm';
   const contentWidthStr = is80mm ? '74mm' : '50mm';
 
   const fullHtml = `<!DOCTYPE html>
@@ -722,12 +721,12 @@ export const generateTicketPDF = (
       padding: 0;
     }
     @page {
-      size: ${paperSizeStr} portrait;
+      size: portrait;
       margin: 0 !important;
     }
     @media print {
       @page {
-        size: ${paperSizeStr} portrait;
+        size: portrait;
         margin: 0 !important;
       }
       header, footer, nav { display: none !important; }
@@ -745,7 +744,7 @@ export const generateTicketPDF = (
         width: ${contentWidthStr} !important;
         max-width: ${contentWidthStr} !important;
         margin: 0 auto !important;
-        padding: 1mm 0 !important;
+        padding: 0 !important;
         box-sizing: border-box !important;
         display: block !important;
         page-break-after: avoid !important;
@@ -777,7 +776,7 @@ export const generateTicketPDF = (
       width: ${contentWidthStr} !important;
       max-width: ${contentWidthStr} !important;
       margin: 0 auto !important;
-      padding: 1mm 0 !important;
+      padding: 0 !important;
       box-sizing: border-box !important;
       display: block !important;
     }
