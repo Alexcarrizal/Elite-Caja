@@ -721,13 +721,13 @@ export const generateTicketPDF = (
       padding: 0;
     }
     @page {
-      size: portrait;
-      margin: 0 !important;
+      size: auto;
+      margin: 0;
     }
     @media print {
       @page {
-        size: portrait;
-        margin: 0 !important;
+        size: auto;
+        margin: 0;
       }
       header, footer, nav { display: none !important; }
       html, body {
@@ -739,6 +739,7 @@ export const generateTicketPDF = (
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
         display: block !important;
+        vertical-align: top !important;
       }
       #ticket-container {
         width: ${contentWidthStr} !important;
@@ -760,6 +761,7 @@ export const generateTicketPDF = (
       max-width: ${paperWidthStr} !important;
       background-color: #fff !important;
       display: block !important;
+      vertical-align: top !important;
     }
     body {
       font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -831,12 +833,13 @@ export const generateTicketPDF = (
 </html>`;
 
   const iframe = document.createElement('iframe');
-  iframe.style.position = 'fixed';
-  iframe.style.left = '-9999px';
-  iframe.style.top = '-9999px';
-  iframe.style.width = is80mm ? '80mm' : '58mm';
-  iframe.style.height = '1px';
-  iframe.style.border = '0';
+  iframe.style.position = 'absolute';
+  iframe.style.left = '0px';
+  iframe.style.top = '0px';
+  iframe.style.width = '0px';
+  iframe.style.height = '0px';
+  iframe.style.border = 'none';
+  iframe.style.visibility = 'hidden';
   document.body.appendChild(iframe);
 
   const iframeDoc = iframe.contentWindow?.document || iframe.contentDocument;
